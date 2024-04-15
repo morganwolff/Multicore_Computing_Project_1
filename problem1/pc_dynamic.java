@@ -4,15 +4,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This class calculates the number of prime numbers using dynamic load balancing
- * where each thread fetches the next number to check from a shared atomic counter.
+ * where each thread fetches the next block of numbers to check from a shared atomic counter.
  */
 public class pc_dynamic {
     private static int NUM_END = 200000; // Default upper limit of the number range to check for primes
     private static int NUM_THREADS = 4; // Default number of threads to use for computation
-    private static AtomicInteger nextNumber = new AtomicInteger(1); // Atomic counter for the next number to be checked
+    private static int BLOCK_SIZE = 10; // Number of numbers each thread processes in one task
+    private static AtomicInteger nextBlockStart = new AtomicInteger(1); // Atomic counter for the start of the next block to be checked
 
     /**
-     * PrimeCounter extends Thread to dynamically calculate primes by fetching numbers from a shared atomic counter.
+     * PrimeCounter extends Thread to dynamically calculate primes by fetching blocks of numbers from a shared atomic counter.
      */
     private static class PrimeCounter extends Thread {
         private int count = 0; // Counter for the number of prime numbers found
@@ -28,16 +29,18 @@ public class pc_dynamic {
         }
 
         /**
-         * The main execution method for the thread, which fetches numbers and checks for primality.
+         * The main execution method for the thread, which fetches blocks of numbers and checks for primality.
          */
         @Override
         public void run() {
             long startTime = System.currentTimeMillis();
             while (true) {
-                int number = nextNumber.getAndAdd(1);
-                if (number >= NUM_END) break;
-                if (isPrime(number)) {
-                    count++;
+                int blockStart = nextBlockStart.getAndAdd(BLOCK_SIZE); // Atomically fetch and increment the start of the next block
+                if (blockStart >= NUM_END) break; // Stop if the block start exceeds the maximum range
+                for (int i = blockStart; i < blockStart + BLOCK_SIZE && i < NUM_END; i++) {
+                    if (isPrime(i)) {
+                        count++;
+                    }
                 }
             }
             long endTime = System.currentTimeMillis();
